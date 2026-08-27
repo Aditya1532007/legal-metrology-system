@@ -39,9 +39,8 @@
     .cf div { font-size: 15px; font-weight: 600; margin-top: 3px; }
     .cert-foot { padding: 16px 24px; border-top: 1px dashed var(--border-strong); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--surface-2); }
     .expiry-note { font-size: 13px; }
-    .qr { width: 78px; height: 78px; border-radius: 10px; background:
-        conic-gradient(from 0deg, var(--ink) 0 25%, transparent 0 50%, var(--ink) 0 75%, transparent 0);
-        background-size: 26px 26px; border: 4px solid var(--ink); opacity: .9; }
+    .qr { width: 74px; height: 74px; border-radius: 10px; background: #fff; padding: 6px; border: 1px solid var(--border-strong); flex: none; }
+    .qr svg { width: 100%; height: 100%; display: block; }
     .not-found { text-align: center; padding: 40px 24px; }
     .not-found .nf-ico { width: 56px; height: 56px; border-radius: 14px; background: var(--danger-soft); color: var(--danger); display: grid; place-items: center; margin: 0 auto 14px; }
     .not-found .nf-ico svg { width: 28px; height: 28px; }
@@ -117,9 +116,10 @@
       else if (status === "expired") note = `<span class="badge badge-danger"><span class="dot"></span>Expired ${Math.abs(days)} days ago</span>`;
       else note = `<span class="badge badge-neutral"><span class="dot"></span>Awaiting verification</span>`;
 
+      const bandClass = status === "verified" ? "ok" : status;
       resultEl.innerHTML = `
         <div class="cert">
-          <div class="cert-band ${status}">
+          <div class="cert-band ${bandClass}">
             <div class="cb-ico">${UI.icon(status === "expired" ? "alert" : status === "due" ? "clock" : status === "pending" ? "clock" : "shield")}</div>
             <div><h2>${meta.t}</h2><p>${meta.d}</p></div>
           </div>
@@ -139,7 +139,7 @@
           </div>
           <div class="cert-foot">
             <div class="row gap-sm">
-              <div class="qr" role="img" aria-label="Verification QR code"></div>
+              <div class="qr" role="img" aria-label="Verification QR code">${UI.qr(inst.serial)}</div>
               <div class="expiry-note">
                 <div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Status</div>
                 ${note}
