@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-background">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Console | Legal Metrology Verify</title>
+  <meta name="description" content="Department console to assign inspectors, track workload, monitor fees and compliance across all instruments." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .bar-row .bl { width: 130px; flex: none; font-size: 13px; font-weight: 600; }
+    .bar-row .bt { flex: 1; }
+    .bar-row .bv { width: 44px; text-align: right; font-weight: 700; font-size: 13px; }
+    .donut-wrap { display: flex; align-items: center; gap: 22px; }
+    .legend { display: flex; flex-direction: column; gap: 10px; }
+    .legend .li { display: flex; align-items: center; gap: 9px; font-size: 13.5px; }
+    .legend .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+    .legend b { margin-left: auto; }
+  </style>
+</head>
+<body>
+  <div id="appbar"></div>
+  <div class="shell">
+    <aside class="sidebar"></aside>
+    <main class="content"><div class="container" id="app"></div></main>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    UI.mountAppbar("admin.html", { name: "Dept. Admin" });
+
+    const nav = [
+      { id: "overview", label: "Overview", icon: "chart" },
+      { id: "applications", label: "Applications", icon: "file" },
+      { id: "inspectors", label: "Inspectors", icon: "users" },
+      { id: "instruments", label: "All Instruments", icon: "scale" },
+    ];
+    let view = "overview";
+
+    function pendingUnassigned() { return LM.db.applications.filter((a) => a.status === "Pending"); }
+
+    function renderSidebar() {
+      const side = document.querySelector(".sidebar");
+      side.innerHTML = `<div class="side-label">Admin Console</div>` + nav.map((n) => {
+        let count = "";
+        if (n.id === "applications") count = `<span class="count">${pendingUnassigned().length}</span>`;
+        if (n.id === "inspectors") count = `<span class="count">${LM.db.inspectors.length}</span>`;
+        return `<div class="side-link ${view === n.id ? "active" : ""}" data-view="${n.id}">${UI.icon(n.icon)}<span>${n.label}</span>${count}</div>`;
+      }).join("") +
+      `<div class="side-label" style="margin-top:12px;">Data</div>
+       <div class="side-link" id="resetBtn">${UI.icon("box")}<span>Reset demo data</span></div>`;
+      side.querySelectorAll(".side-link[data-view]").forEach((el) =>
+        el.addEventListener("click", () => { view = el.dataset.view; renderSidebar(); renderView(); }));
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        UI.modal({ title: "Reset demo data?", subtitle: "This restores the original sample dataset.",
+          body: `<p class="muted">All applications, verifications, and certificates created during this session will be cleared.</p>`,
+          footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-danger-ghost" id="doReset">Reset data</button>` });
+        document.getElementById("doReset").addEventListener("click", () => { LM.reset(); UI.closeModal(); UI.toast("Demo data reset", "ok"); view = "overview"; renderSidebar(); renderView(); });
+      });
+    }
+
+    const app = document.getElementById("app");
+    function renderView() {
+      if (view === "overview") return renderOverview();
+      if (view === "applications") return renderApplications();
+      if (view === "inspectors") return renderInspectors();
+      if (view === "instruments") return renderInstruments();
+    }
+
+    function stat(ico, cls, val, label, trend) {
+      return `<div class="stat"><div class="stat-top"><div class="stat-ico ${cls}">${UI.icon(ico)}</div></div>
+        <div class="stat-val">${val}</div><div class="stat-label">${label}</div>
+        ${trend ? `<div class="stat-trend" style="color:var(--ok)">${trend}</div>` : ""}</div>`;
+    }
+
+    /* -------- Overview -------- */
+    function renderOverview() {
+      const insts = LM.db.instruments;
+      const counts = { verified: 0, due: 0, expired: 0, pending: 0 };
+      insts.forEach((i) => counts[LM.statusOf(i)]++);
+      const apps = LM.db.applications;
+      const collected = apps.filter((a) => a.feePaid).reduce((s, a) => s + a.fee, 0);
+      const outstanding = apps.filter((a) => !a.feePaid && a.status !== "Rejected").reduce((s, a) => s + a.fee, 0);
+      const compliance = insts.length ? Math.round((counts.verified / insts.length) * 100) : 0;
+
+      const total = insts.length || 1;
+      const seg = (n, color) => `${(n / total) * 360}deg ${color}`;
+      let acc = 0;
+      const parts = [["verified", "var(--ok)"], ["due", "var(--warn)"], ["expired", "var(--danger)"], ["pending", "#8a97a8"]];
+      const stops = parts.map(([k, c]) => { const start = (acc / total) * 360; acc += counts[k]; const end = (acc / total) * 360; return `${c} ${start}deg ${end}deg`; }).join(", ");
+
+      app.innerHTML = `
+        <div class="page-head"><div><h1>Department Overview</h1><p>Live compliance and workload across all districts.</p></div>
+          <span class="badge badge-ok"><span class="dot"></span>${compliance}% compliant</span></div>
+        <div class="stat-grid">
+          ${stat("scale", "ico-blue", insts.length, "Total instruments")}
+          ${stat("file", "ico-amber", pendingUnassigned().length, "Awaiting assignment")}
+          ${stat("rupee", "ico-green", UI.fmtRupee(collected), "Fees collected")}
+          ${stat("alert", "ico-red", counts.expired, "Expired / non-compliant")}
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h2>Compliance status</h2></div>
+            <div class="card-pad donut-wrap">
+              <div style="width:150px;height:150px;border-radius:50%;flex:none;background:conic-gradient(${stops});display:grid;place-items:center;">
+                <div style="width:92px;height:92px;border-radius:50%;background:var(--surface);display:grid;place-items:center;">
+                  <div style="text-align:center;"><div style="font-size:24px;font-weight:750;">${compliance}%</div><div class="faint" style="font-size:11px;">verified</div></div>
+                </div>
+              </div>
+              <div class="legend" style="flex:1;">
+                <div class="li"><span class="sw" style="background:var(--ok)"></span>Verified <b>${counts.verified}</b></div>
+                <div class="li"><span class="sw" style="background:var(--warn)"></span>Due soon <b>${counts.due}</b></div>
+                <div class="li"><span class="sw" style="background:var(--danger)"></span>Expired <b>${counts.expired}</b></div>
+                <div class="li"><span class="sw" style="background:#8a97a8"></span>Not verified <b>${counts.pending}</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Inspector workload</h2></div>
+            <div class="card-pad">${inspectorBars()}</div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-head"><h2>Fee ledger</h2></div>
+          <div class="card-pad grid-3">
+            <div><div class="faint" style="font-size:12px;text-transform:uppercase;font-weight:700;">Collected</div><div class="mono" style="font-size:22px;font-weight:750;color:var(--ok)">${UI.fmtRupee(collected)}</div></div>
+            <div><div class="faint" style="font-size:12px;text-transform:uppercase;font-weight:700;">Outstanding</div><div class="mono" style="font-size:22px;font-weight:750;color:var(--danger)">${UI.fmtRupee(outstanding)}</div></div>
+            <div><div class="faint" style="font-size:12px;text-transform:uppercase;font-weight:700;">Applications</div><div class="mono" style="font-size:22px;font-weight:750;">${apps.length}</div></div>
+          </div>
+        </div>`;
+    }
+
+    function inspectorBars() {
+      const max = Math.max(1, ...LM.db.inspectors.map((i) => LM.appsByInspector(i.id).length));
+      return LM.db.inspectors.map((i) => {
+        const load = LM.appsByInspector(i.id).length;
+        const active = LM.appsByInspector(i.id).filter((a) => ["Assigned", "Scheduled"].includes(a.status)).length;
+        return `<div class="bar-row">
+          <div class="bl">${i.name}<div class="faint" style="font-weight:500;font-size:11px;">${i.district}</div></div>
+          <div class="bt"><div class="progress"><span style="width:${(load / max) * 100}%"></span></div></div>
+          <div class="bv">${active}/${load}</div>
+        </div>`;
+      }).join("");
+    }
+
+    /* -------- Applications (assign inspectors) -------- */
+    function renderApplications() {
+      const apps = LM.db.applications;
+      app.innerHTML = `
+        <div class="page-head"><div><h1>Applications</h1><p>Assign inspectors to pending requests and monitor progress.</p></div></div>
+        <div class="card"><div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Application</th><th>Trader</th><th>Instrument</th><th>District</th><th>Fee</th><th>Status</th><th>Inspector</th><th></th></tr></thead>
+            <tbody>${apps.map((a) => `<tr>
+              <td class="mono t-primary">${a.id}</td>
+              <td>${a.traderName}</td>
+              <td><div class="t-primary">${a.type}</div><div class="t-sub">${a.model || "—"}</div></td>
+              <td>${a.district}</td>
+              <td>${a.feePaid ? `<span class="badge badge-ok"><span class="dot"></span>Paid</span>` : `<span class="badge badge-danger"><span class="dot"></span>${UI.fmtRupee(a.fee)}</span>`}</td>
+              <td>${UI.appBadge(a.status)}</td>
+              <td>${a.inspectorName || "<span class='faint'>—</span>"}</td>
+              <td class="text-right">${a.status === "Pending"
+                ? `<button class="btn btn-primary btn-sm" onclick="assign('${a.id}')">Assign</button>`
+                : `<button class="btn btn-ghost btn-sm" onclick="reassign('${a.id}')">Reassign</button>`}</td>
+            </tr>`).join("")}</tbody>
+          </table>
+        </div></div>`;
+    }
+
+    window.assign = window.reassign = function (id) {
+      const a = LM.db.applications.find((x) => x.id === id);
+      const opts = LM.db.inspectors.map((i) => {
+        const load = LM.appsByInspector(i.id).filter((x) => ["Assigned", "Scheduled"].includes(x.status)).length;
+        return `<option value="${i.id}" ${i.district === a.district ? "selected" : ""}>${i.name} — ${i.district} (${load} active)</option>`;
+      }).join("");
+      UI.modal({
+        title: "Assign inspector", subtitle: a.id + " · " + a.type + " · " + a.district,
+        body: `<div class="field"><label>Select inspector</label><select class="select" id="inspSel">${opts}</select>
+          <div class="hint">Inspectors in the same district as the instrument are preferred.</div></div>
+          <div class="field"><label>Priority note (optional)</label><input class="input" placeholder="e.g. Expired — schedule urgently" /></div>`,
+        footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="doAssign">Confirm assignment</button>`,
+      });
+      document.getElementById("doAssign").addEventListener("click", () => {
+        LM.assignInspector(id, document.getElementById("inspSel").value);
+        UI.closeModal(); UI.toast("Inspector assigned to " + id, "ok");
+        renderSidebar(); renderView();
+      });
+    };
+
+    /* -------- Inspectors -------- */
+    function renderInspectors() {
+      app.innerHTML = `
+        <div class="page-head"><div><h1>Inspectors</h1><p>Field workforce and current allocation.</p></div></div>
+        <div class="grid-3">${LM.db.inspectors.map((i) => {
+          const all = LM.appsByInspector(i.id);
+          const active = all.filter((a) => ["Assigned", "Scheduled"].includes(a.status)).length;
+          const done = all.filter((a) => a.status === "Verified").length;
+          return `<div class="card"><div class="card-pad">
+            <div class="row gap-sm" style="margin-bottom:14px;">
+              <span class="appbar" style="all:unset;"></span>
+              <div style="width:44px;height:44px;border-radius:11px;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-weight:700;">${UI.initials(i.name)}</div>
+              <div><div style="font-weight:650;">${i.name}</div><div class="muted" style="font-size:12.5px;">${i.id} &middot; ${i.zone}</div></div>
+            </div>
+            <div class="kv" style="grid-template-columns:1fr auto;font-size:13.5px;">
+              <dt>District</dt><dd>${i.district}</dd>
+              <dt>Active jobs</dt><dd>${active}</dd>
+              <dt>Completed</dt><dd>${done}</dd>
+              <dt>Contact</dt><dd class="mono" style="font-size:12.5px;">${i.phone}</dd>
+            </div>
+          </div></div>`;
+        }).join("")}</div>`;
+    }
+
+    /* -------- All instruments -------- */
+    function renderInstruments() {
+      const insts = LM.db.instruments;
+      app.innerHTML = `
+        <div class="page-head"><div><h1>All Instruments</h1><p>Central register across every trader and district.</p></div></div>
+        <div class="toolbar">
+          <div class="search"><span id="si"></span><input id="q" placeholder="Search serial, trader, type..." /></div>
+          <div class="seg" id="filter">
+            <button class="active" data-f="all">All</button>
+            <button data-f="verified">Verified</button>
+            <button data-f="due">Due</button>
+            <button data-f="expired">Expired</button>
+          </div>
+        </div>
+        <div class="card"><div class="table-wrap"><table class="data">
+          <thead><tr><th>Serial</th><th>Type</th><th>Trader</th><th>District</th><th>Status</th><th>Valid until</th><th>Inspector</th></tr></thead>
+          <tbody id="instBody"></tbody>
+        </table></div></div>`;
+      document.getElementById("si").innerHTML = UI.icon("search");
+      let filter = "all", q = "";
+      function draw() {
+        const rows = insts.filter((i) => {
+          const st = LM.statusOf(i);
+          if (filter !== "all" && st !== filter) return false;
+          if (q && !(i.serial + i.traderName + i.type).toLowerCase().includes(q)) return false;
+          return true;
+        });
+        document.getElementById("instBody").innerHTML = rows.length ? rows.map((i) => `<tr>
+          <td class="mono t-primary">${i.serial}</td><td>${i.type}</td><td>${i.traderName}</td><td>${i.district}</td>
+          <td>${UI.statusBadge(LM.statusOf(i))}</td><td>${UI.fmtDate(i.expiry)}</td><td>${i.inspectorName || "—"}</td>
+        </tr>`).join("") : `<tr><td colspan="7"><div class="empty">${UI.icon("search")}<p>No instruments match.</p></div></td></tr>`;
+      }
+      document.getElementById("q").addEventListener("input", (e) => { q = e.target.value.toLowerCase(); draw(); });
+      document.querySelectorAll("#filter button").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll("#filter button").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active"); filter = b.dataset.f; draw();
+      }));
+      draw();
+    }
+
+    renderSidebar();
+    renderView();
+  </script>
+</body>
+</html>

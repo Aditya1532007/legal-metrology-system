@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-background">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Metrology Verification System | Ministry of Consumer Affairs</title>
+  <meta name="description" content="Online Verification System for Weighing & Measuring Instruments under India's Legal Metrology Act — apply, verify, and check certification status in one place." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .hero {
+      background:
+        radial-gradient(1100px 380px at 80% -10%, rgba(255,255,255,.10), transparent),
+        linear-gradient(160deg, var(--primary-700), var(--primary));
+      color: #fff; padding: 58px 0 120px;
+    }
+    .hero .container { padding: 0 30px; }
+    .hero .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600;
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      padding: 6px 13px; border-radius: 999px; color: #fff; margin-bottom: 20px;
+    }
+    .hero h1 { font-size: 40px; line-height: 1.1; font-weight: 750; letter-spacing: -0.03em; max-width: 720px; }
+    .hero p.lede { font-size: 17px; color: rgba(255,255,255,.82); max-width: 620px; margin-top: 16px; }
+    .hero-cta { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+    .btn-white { background: #fff; color: var(--primary); }
+    .btn-white:hover { background: #eef2f8; }
+    .btn-outline-w { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.35); }
+    .btn-outline-w:hover { background: rgba(255,255,255,.16); }
+    .lift { margin-top: -78px; position: relative; z-index: 5; }
+    .check-card { padding: 22px; }
+    .check-card form { display: flex; gap: 10px; }
+    .check-card .search { max-width: none; }
+    .portal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 22px; }
+    .portal {
+      display: block; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
+      transition: transform .12s, box-shadow .12s, border-color .12s;
+    }
+    .portal:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--border-strong); }
+    .portal .p-ico { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 14px; }
+    .portal h3 { font-size: 16px; font-weight: 650; }
+    .portal p { font-size: 13px; color: var(--ink-muted); margin-top: 4px; }
+    .portal .go { font-size: 13px; font-weight: 650; color: var(--primary); margin-top: 12px; display: inline-flex; align-items: center; gap: 5px; }
+    .section { padding: 46px 30px; }
+    .section h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    .section .sub { color: var(--ink-muted); margin-top: 4px; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 26px; counter-reset: s; }
+    .step { position: relative; padding-top: 14px; }
+    .step .sn {
+      width: 34px; height: 34px; border-radius: 9px; background: var(--primary-soft); color: var(--primary);
+      font-weight: 700; display: grid; place-items: center; font-size: 15px; margin-bottom: 12px;
+    }
+    .step h4 { font-size: 15px; font-weight: 650; }
+    .step p { font-size: 13px; color: var(--ink-muted); margin-top: 4px; }
+    .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .fact { padding: 22px; border-right: 1px solid var(--border); }
+    .fact:last-child { border-right: none; }
+    .fact .fv { font-size: 30px; font-weight: 750; letter-spacing: -0.03em; color: var(--primary); }
+    .fact .fl { font-size: 13px; color: var(--ink-muted); margin-top: 2px; }
+    footer.site { border-top: 1px solid var(--border); padding: 26px 30px; color: var(--ink-muted); font-size: 13px; background: var(--surface); }
+    @media (max-width: 900px) {
+      .portal-grid, .steps { grid-template-columns: 1fr 1fr; }
+      .facts { grid-template-columns: 1fr 1fr; }
+      .fact:nth-child(2) { border-right: none; }
+      .fact:nth-child(1), .fact:nth-child(2) { border-bottom: 1px solid var(--border); }
+      .hero h1 { font-size: 30px; }
+      .check-card form { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div id="appbar"></div>
+
+  <section class="hero">
+    <div class="container">
+      <span class="eyebrow">Legal Metrology Act, 2009 &middot; Smart Automation</span>
+      <h1 class="text-balance">Online verification for every weighing &amp; measuring instrument in India</h1>
+      <p class="lede">A single digital record of what was verified, when, by whom, and when it&apos;s due next &mdash; replacing paper certificates and scattered manual processes.</p>
+      <div class="hero-cta">
+        <a href="verify.html" class="btn btn-white">Check an instrument</a>
+        <a href="trader.html" class="btn btn-outline-w">Apply for verification</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="container lift">
+    <div style="padding: 0 30px;">
+      <div class="card check-card">
+        <div class="row-between wrap" style="margin-bottom:14px;">
+          <div>
+            <h2 style="font-size:16px;font-weight:650;">Instant public verification</h2>
+            <p class="muted" style="font-size:13px;">Enter a certificate number or instrument serial to see its live status.</p>
+          </div>
+          <span class="badge badge-ok"><span class="dot"></span>Live records</span>
+        </div>
+        <form id="quickCheck" role="search">
+          <div class="search">
+            <span id="qcIcon"></span>
+            <input id="qcInput" type="text" placeholder="e.g. WM-PN-4471 or LM-CERT-4471-24" aria-label="Instrument serial or certificate number" />
+          </div>
+          <button class="btn btn-primary" type="submit">Verify now</button>
+        </form>
+      </div>
+
+      <div class="portal-grid" id="portals"></div>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="container">
+      <h2>How verification works</h2>
+      <p class="sub">From application to a re-verification reminder &mdash; fully tracked end to end.</p>
+      <div class="steps">
+        <div class="step"><div class="sn">1</div><h4>Trader applies</h4><p>Register an instrument and submit a verification request online with the applicable fee.</p></div>
+        <div class="step"><div class="sn">2</div><h4>Inspector assigned</h4><p>The department assigns an inspector by district and schedules a site visit.</p></div>
+        <div class="step"><div class="sn">3</div><h4>Verify &amp; certify</h4><p>The inspector records the result; a digital certificate and QR-checkable record are issued.</p></div>
+        <div class="step"><div class="sn">4</div><h4>Track &amp; renew</h4><p>Expiry is tracked automatically and renewal reminders are sent before the due date.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0;">
+    <div class="container">
+      <div class="facts" id="facts"></div>
+    </div>
+  </section>
+
+  <footer class="site">
+    <div class="container">
+      <div class="row-between wrap">
+        <div>Legal Metrology Online Verification System &mdash; Demonstration build for Smart India Hackathon.</div>
+        <div class="faint">Data is stored locally in your browser for this prototype.</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/store.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    UI.mountAppbar("index.html", null);
+    document.getElementById("qcIcon").innerHTML = UI.icon("search");
+
+    // Portal cards
+    const portals = [
+      { href: "verify.html", ico: "shield", cls: "ico-green", t: "Public Check", d: "Consumers & authorities verify any instrument's status instantly." },
+      { href: "trader.html", ico: "box", cls: "ico-blue", t: "Trader Portal", d: "Register instruments, apply for verification, pay fees & renew." },
+      { href: "inspector.html", ico: "scale", cls: "ico-amber", t: "Inspector Desk", d: "View assigned jobs, record results & issue certificates." },
+      { href: "admin.html", ico: "chart", cls: "ico-red", t: "Admin Console", d: "Assign inspectors, track workload, fees & compliance." },
+    ];
+    document.getElementById("portals").innerHTML = portals.map((p) => `
+      <a class="portal" href="${p.href}">
+        <div class="p-ico ${p.cls}">${UI.icon(p.ico)}</div>
+        <h3>${p.t}</h3><p>${p.d}</p>
+        <span class="go">Open ${UI.icon("logout")}</span>
+      </a>`).join("");
+
+    // Facts derived from the live dataset
+    const insts = LM.db.instruments;
+    const verified = insts.filter((i) => LM.statusOf(i) === "verified").length;
+    const due = insts.filter((i) => LM.statusOf(i) === "due").length;
+    const expired = insts.filter((i) => LM.statusOf(i) === "expired").length;
+    document.getElementById("facts").innerHTML = [
+      { v: insts.length, l: "Instruments on record" },
+      { v: verified, l: "Currently verified" },
+      { v: due, l: "Due within 30 days" },
+      { v: expired, l: "Expired / non-compliant" },
+    ].map((f) => `<div class="fact"><div class="fv">${f.v}</div><div class="fl">${f.l}</div></div>`).join("");
+
+    // Quick check -> verify page
+    document.getElementById("quickCheck").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const q = document.getElementById("qcInput").value.trim();
+      if (!q) { UI.toast("Enter a serial or certificate number", "danger"); return; }
+      location.href = "verify.html?q=" + encodeURIComponent(q);
+    });
+  </script>
+</body>
+</html>

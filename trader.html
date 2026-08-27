@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-background">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trader Portal | Legal Metrology Verify</title>
+  <meta name="description" content="Register weighing & measuring instruments, apply for verification, pay fees, and track renewals." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="appbar"></div>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="side-label">Trader</div>
+      <div class="side-link active" data-view="overview">${'' }</div>
+    </aside>
+    <main class="content">
+      <div class="container" id="app"></div>
+    </main>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const TRADER_ID = "TR-1001";
+    const trader = LM.db.traders.find((t) => t.id === TRADER_ID);
+    UI.mountAppbar("trader.html", { name: trader.name });
+
+    // Build sidebar
+    const nav = [
+      { id: "overview", label: "Overview", icon: "layout" },
+      { id: "instruments", label: "My Instruments", icon: "scale" },
+      { id: "applications", label: "Applications", icon: "file" },
+    ];
+    let view = "overview";
+    function renderSidebar() {
+      const side = document.querySelector(".sidebar");
+      side.innerHTML = `<div class="side-label">Trader Portal</div>` + nav.map((n) => {
+        let count = "";
+        if (n.id === "instruments") count = `<span class="count">${LM.instrumentsByTrader(TRADER_ID).length}</span>`;
+        if (n.id === "applications") count = `<span class="count">${LM.appsByTrader(TRADER_ID).length}</span>`;
+        return `<div class="side-link ${view === n.id ? "active" : ""}" data-view="${n.id}">${UI.icon(n.icon)}<span>${n.label}</span>${count}</div>`;
+      }).join("") +
+      `<div class="side-label" style="margin-top:12px;">Actions</div>
+       <div class="side-link" id="navApply">${UI.icon("plus")}<span>New Application</span></div>`;
+      side.querySelectorAll(".side-link[data-view]").forEach((el) =>
+        el.addEventListener("click", () => { view = el.dataset.view; renderSidebar(); renderView(); }));
+      document.getElementById("navApply").addEventListener("click", openApplyModal);
+    }
+
+    const app = document.getElementById("app");
+
+    function renderView() {
+      if (view === "overview") return renderOverview();
+      if (view === "instruments") return renderInstruments();
+      if (view === "applications") return renderApplications();
+    }
+
+    /* -------- Overview -------- */
+    function renderOverview() {
+      const insts = LM.instrumentsByTrader(TRADER_ID);
+      const apps = LM.appsByTrader(TRADER_ID);
+      const verified = insts.filter((i) => LM.statusOf(i) === "verified").length;
+      const due = insts.filter((i) => ["due", "expired"].includes(LM.statusOf(i)));
+      const pendingApps = apps.filter((a) => ["Pending", "Assigned", "Scheduled"].includes(a.status)).length;
+      const dueFee = apps.filter((a) => !a.feePaid && a.status !== "Rejected").reduce((s, a) => s + a.fee, 0);
+
+      app.innerHTML = `
+        <div class="page-head">
+          <div><h1>Welcome, ${trader.name.split(" ")[0]}</h1><p>${trader.shop} &middot; ${trader.district}</p></div>
+          <button class="btn btn-primary" id="applyBtn">${UI.icon("plus")} New verification</button>
+        </div>
+        <div class="stat-grid">
+          ${stat("scale", "ico-blue", insts.length, "Registered instruments")}
+          ${stat("check", "ico-green", verified, "Currently verified")}
+          ${stat("clock", "ico-amber", due.length, "Need attention")}
+          ${stat("file", "ico-red", pendingApps, "Applications in progress")}
+        </div>
+
+        ${due.length ? `
+        <div class="card mb-2" style="border-color: var(--warn); background: var(--warn-soft);">
+          <div class="card-pad row-between wrap">
+            <div class="row gap-sm">
+              <span class="ico-amber" style="width:40px;height:40px;border-radius:10px;display:grid;place-items:center;">${UI.icon("alert")}</span>
+              <div>
+                <b style="font-size:14.5px;">${due.length} instrument${due.length > 1 ? "s" : ""} due for re-verification</b>
+                <div class="muted" style="font-size:13px;">Renew before expiry to stay compliant and avoid penalties.</div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="(function(){view='instruments';renderSidebar();renderView();})()">Review now</button>
+          </div>
+        </div>` : ""}
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h2>Instruments needing action</h2></div>
+            <div class="table-wrap">${dueTable(due)}</div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Fee summary</h2></div>
+            <div class="card-pad">
+              <div class="kv" style="grid-template-columns:1fr auto;">
+                <dt>Outstanding fees</dt><dd class="mono" style="color:${dueFee ? "var(--danger)" : "var(--ok)"}">${UI.fmtRupee(dueFee)}</dd>
+                <dt>Applications in progress</dt><dd>${pendingApps}</dd>
+                <dt>Verified this cycle</dt><dd>${verified}</dd>
+              </div>
+              ${dueFee ? `<button class="btn btn-primary btn-block mt-2" onclick="(function(){view='applications';renderSidebar();renderView();})()">${UI.icon("rupee")} Pay outstanding fees</button>`
+                : `<div class="mt-2 badge badge-ok"><span class="dot"></span>All fees settled</div>`}
+            </div>
+          </div>
+        </div>`;
+      document.getElementById("applyBtn").addEventListener("click", openApplyModal);
+    }
+
+    function stat(ico, cls, val, label) {
+      return `<div class="stat"><div class="stat-top"><div class="stat-ico ${cls}">${UI.icon(ico)}</div></div>
+        <div class="stat-val">${val}</div><div class="stat-label">${label}</div></div>`;
+    }
+
+    function dueTable(list) {
+      if (!list.length) return `<div class="empty">${UI.icon("check")}<p>Everything is up to date.</p></div>`;
+      return `<table class="data"><thead><tr><th>Instrument</th><th>Status</th><th>Expiry</th><th></th></tr></thead><tbody>${
+        list.map((i) => `<tr>
+          <td><div class="t-primary">${i.type}</div><div class="t-sub mono">${i.serial}</div></td>
+          <td>${UI.statusBadge(LM.statusOf(i))}</td>
+          <td>${UI.fmtDate(i.expiry)}</td>
+          <td class="text-right"><button class="btn btn-soft btn-sm" onclick="renew('${i.serial}')">Renew</button></td>
+        </tr>`).join("")
+      }</tbody></table>`;
+    }
+
+    /* -------- Instruments -------- */
+    function renderInstruments() {
+      const insts = LM.instrumentsByTrader(TRADER_ID);
+      app.innerHTML = `
+        <div class="page-head">
+          <div><h1>My Instruments</h1><p>All weighing & measuring instruments registered under your establishment.</p></div>
+          <button class="btn btn-primary" id="applyBtn">${UI.icon("plus")} Register & apply</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Instrument</th><th>Serial</th><th>Certificate</th><th>Status</th><th>Valid until</th><th>Inspector</th><th></th></tr></thead>
+              <tbody>${insts.map((i) => {
+                const st = LM.statusOf(i);
+                const canRenew = ["due", "expired"].includes(st);
+                return `<tr>
+                  <td><div class="t-primary">${i.type}</div><div class="t-sub">${i.model} &middot; ${i.capacity}</div></td>
+                  <td class="mono">${i.serial}</td>
+                  <td class="mono t-sub">${i.certNo || "—"}</td>
+                  <td>${UI.statusBadge(st)}</td>
+                  <td>${UI.fmtDate(i.expiry)}</td>
+                  <td>${i.inspectorName || "—"}</td>
+                  <td class="text-right">${canRenew ? `<button class="btn btn-soft btn-sm" onclick="renew('${i.serial}')">Renew</button>` : `<button class="btn btn-ghost btn-sm" onclick="viewInst('${i.serial}')">View</button>`}</td>
+                </tr>`;
+              }).join("")}</tbody>
+            </table>
+          </div>
+        </div>`;
+      document.getElementById("applyBtn").addEventListener("click", openApplyModal);
+    }
+
+    window.viewInst = function (serial) {
+      const i = LM.db.instruments.find((x) => x.serial === serial);
+      UI.modal({
+        title: i.type, subtitle: i.shop + " · " + i.district,
+        body: `<div class="kv">
+          <dt>Serial number</dt><dd class="mono">${i.serial}</dd>
+          <dt>Certificate</dt><dd class="mono">${i.certNo || "—"}</dd>
+          <dt>Make / model</dt><dd>${i.model}</dd>
+          <dt>Capacity</dt><dd>${i.capacity}</dd>
+          <dt>Status</dt><dd>${UI.statusBadge(LM.statusOf(i))}</dd>
+          <dt>Last verified</dt><dd>${UI.fmtDate(i.lastVerified)}</dd>
+          <dt>Valid until</dt><dd>${UI.fmtDate(i.expiry)}</dd>
+          <dt>Inspector</dt><dd>${i.inspectorName || "—"}</dd>
+        </div>`,
+        footer: `<button class="btn btn-ghost" data-close>Close</button>`,
+      });
+    };
+
+    /* -------- Applications -------- */
+    function renderApplications() {
+      const apps = LM.appsByTrader(TRADER_ID);
+      app.innerHTML = `
+        <div class="page-head">
+          <div><h1>Applications</h1><p>Track verification requests, fee payments, and outcomes.</p></div>
+          <button class="btn btn-primary" id="applyBtn">${UI.icon("plus")} New application</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Application</th><th>Instrument</th><th>Applied</th><th>Inspector</th><th>Fee</th><th>Status</th><th></th></tr></thead>
+              <tbody>${apps.length ? apps.map((a) => `<tr>
+                <td class="mono t-primary">${a.id}${a.isRenewal ? `<div class="t-sub" style="font-family:var(--font-sans)">Renewal</div>` : ""}</td>
+                <td><div class="t-primary">${a.type}</div><div class="t-sub">${a.model || "—"}</div></td>
+                <td>${UI.fmtDate(a.applied)}</td>
+                <td>${a.inspectorName || "<span class='faint'>Unassigned</span>"}</td>
+                <td>${a.feePaid ? `<span class="badge badge-ok"><span class="dot"></span>Paid</span>` : `<span class="mono">${UI.fmtRupee(a.fee)}</span>`}</td>
+                <td>${UI.appBadge(a.status)}</td>
+                <td class="text-right">${!a.feePaid && a.status !== "Rejected" ? `<button class="btn btn-primary btn-sm" onclick="pay('${a.id}')">Pay fee</button>` : `<button class="btn btn-ghost btn-sm" onclick="viewApp('${a.id}')">Details</button>`}</td>
+              </tr>`).join("") : `<tr><td colspan="7"><div class="empty">${UI.icon("inbox")}<p>No applications yet. Start by registering an instrument.</p></div></td></tr>`}</tbody>
+            </table>
+          </div>
+        </div>`;
+      document.getElementById("applyBtn").addEventListener("click", openApplyModal);
+    }
+
+    window.viewApp = function (id) {
+      const a = LM.db.applications.find((x) => x.id === id);
+      UI.modal({
+        title: "Application " + a.id, subtitle: a.type,
+        body: `<div class="kv">
+          <dt>Status</dt><dd>${UI.appBadge(a.status)}</dd>
+          <dt>Applied on</dt><dd>${UI.fmtDate(a.applied)}</dd>
+          <dt>Scheduled visit</dt><dd>${UI.fmtDate(a.scheduled)}</dd>
+          <dt>Inspector</dt><dd>${a.inspectorName || "—"}</dd>
+          <dt>Fee</dt><dd class="mono">${UI.fmtRupee(a.fee)} ${a.feePaid ? "(paid)" : "(due)"}</dd>
+          ${a.resultCert ? `<dt>Certificate</dt><dd class="mono">${a.resultCert}</dd>` : ""}
+          ${a.rejectReason ? `<dt>Reason</dt><dd style="color:var(--danger)">${a.rejectReason}</dd>` : ""}
+        </div>`,
+        footer: `<button class="btn btn-ghost" data-close>Close</button>`,
+      });
+    };
+
+    /* -------- Actions -------- */
+    window.pay = function (id) {
+      const a = LM.db.applications.find((x) => x.id === id);
+      UI.modal({
+        title: "Pay verification fee", subtitle: a.id + " · " + a.type,
+        body: `<div class="card" style="background:var(--surface-2);box-shadow:none;">
+            <div class="card-pad kv" style="grid-template-columns:1fr auto;">
+              <dt>Verification fee</dt><dd class="mono">${UI.fmtRupee(a.fee)}</dd>
+              <dt>Processing</dt><dd class="mono">₹0</dd>
+              <dt style="font-weight:700;color:var(--ink)">Total payable</dt><dd class="mono" style="font-size:16px;">${UI.fmtRupee(a.fee)}</dd>
+            </div>
+          </div>
+          <div class="field mt-2"><label>Payment method</label>
+            <select class="select"><option>UPI</option><option>Net Banking</option><option>Debit / Credit Card</option></select>
+          </div>
+          <p class="faint" style="font-size:12px;">This is a simulated payment for the prototype &mdash; no real transaction occurs.</p>`,
+        footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="confirmPay">${UI.icon("rupee")} Pay ${UI.fmtRupee(a.fee)}</button>`,
+      });
+      document.getElementById("confirmPay").addEventListener("click", () => {
+        LM.payFee(id); UI.closeModal(); UI.toast("Fee paid successfully", "ok");
+        renderSidebar(); renderView();
+      });
+    };
+
+    window.renew = function (serial) {
+      const inst = LM.db.instruments.find((x) => x.serial === serial);
+      UI.modal({
+        title: "Apply for re-verification", subtitle: inst.type + " · " + inst.serial,
+        body: `<p class="muted" style="font-size:14px;">This creates a renewal application for <b>${inst.serial}</b> and routes it to the department for inspector assignment. A fee of <b>${UI.fmtRupee(inst.fee || 500)}</b> applies.</p>`,
+        footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="confirmRenew">Submit renewal</button>`,
+      });
+      document.getElementById("confirmRenew").addEventListener("click", () => {
+        const a = LM.renewInstrument(serial); UI.closeModal();
+        UI.toast("Renewal application " + a.id + " submitted", "ok");
+        view = "applications"; renderSidebar(); renderView();
+      });
+    };
+
+    function openApplyModal() {
+      const typeOpts = LM.INSTRUMENT_TYPES.map((t) => `<option>${t}</option>`).join("");
+      UI.modal({
+        title: "New verification application",
+        subtitle: "Register an instrument and submit it for government verification.",
+        body: `<form id="applyForm">
+          <div class="form-grid">
+            <div class="field"><label>Instrument type</label><select class="select" name="type" required>${typeOpts}</select></div>
+            <div class="field"><label>Make / model</label><input class="input" name="model" placeholder="e.g. Essae DS-252" required /></div>
+            <div class="field"><label>Capacity / range</label><input class="input" name="capacity" placeholder="e.g. 30 kg" /></div>
+            <div class="field"><label>District</label><select class="select" name="district">${LM.DISTRICTS.map((d) => `<option ${d === trader.district ? "selected" : ""}>${d}</option>`).join("")}</select></div>
+            <div class="field col-span-2"><label>Installation address</label><input class="input" name="address" value="${trader.shop}, ${trader.district}" /></div>
+          </div>
+          <div class="card" style="background:var(--surface-2);box-shadow:none;">
+            <div class="card-pad row-between"><span class="muted" style="font-size:13.5px;">Verification fee (paid after submission)</span><b class="mono">${UI.fmtRupee(500)}</b></div>
+          </div>
+        </form>`,
+        footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="submitApply">Submit application</button>`,
+      });
+      document.getElementById("submitApply").addEventListener("click", () => {
+        const f = document.getElementById("applyForm");
+        if (!f.reportValidity()) return;
+        const fd = new FormData(f);
+        const a = LM.addApplication({
+          traderId: TRADER_ID, traderName: trader.name,
+          type: fd.get("type"), model: fd.get("model"),
+          capacity: fd.get("capacity"), district: fd.get("district"), fee: 500,
+        });
+        UI.closeModal(); UI.toast("Application " + a.id + " submitted", "ok");
+        view = "applications"; renderSidebar(); renderView();
+      });
+    }
+
+    renderSidebar();
+    renderView();
+  </script>
+</body>
+</html>

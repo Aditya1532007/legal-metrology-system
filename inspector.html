@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-background">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inspector Desk | Legal Metrology Verify</title>
+  <meta name="description" content="Inspector workspace to view assigned verification jobs, record results, and issue certificates." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="appbar"></div>
+  <div class="shell">
+    <aside class="sidebar"></aside>
+    <main class="content"><div class="container" id="app"></div></main>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const INSPECTOR_ID = "IN-2001";
+    const inspector = LM.db.inspectors.find((i) => i.id === INSPECTOR_ID);
+    UI.mountAppbar("inspector.html", { name: inspector.name });
+
+    const nav = [
+      { id: "queue", label: "Job Queue", icon: "inbox" },
+      { id: "schedule", label: "Schedule", icon: "calendar" },
+      { id: "completed", label: "Completed", icon: "check" },
+    ];
+    let view = "queue";
+
+    function assignedApps() {
+      return LM.appsByInspector(INSPECTOR_ID).filter((a) => ["Assigned", "Scheduled"].includes(a.status));
+    }
+    function completedApps() {
+      return LM.appsByInspector(INSPECTOR_ID).filter((a) => ["Verified", "Rejected"].includes(a.status));
+    }
+
+    function renderSidebar() {
+      const side = document.querySelector(".sidebar");
+      side.innerHTML = `<div class="side-label">Inspector Desk</div>` + nav.map((n) => {
+        let count = "";
+        if (n.id === "queue") count = `<span class="count">${assignedApps().length}</span>`;
+        if (n.id === "completed") count = `<span class="count">${completedApps().length}</span>`;
+        return `<div class="side-link ${view === n.id ? "active" : ""}" data-view="${n.id}">${UI.icon(n.icon)}<span>${n.label}</span>${count}</div>`;
+      }).join("") +
+      `<div class="side-label" style="margin-top:12px;">Zone</div>
+       <div class="side-link" style="cursor:default">${UI.icon("pin")}<span>${inspector.district} &middot; ${inspector.zone}</span></div>`;
+      side.querySelectorAll(".side-link[data-view]").forEach((el) =>
+        el.addEventListener("click", () => { view = el.dataset.view; renderSidebar(); renderView(); }));
+    }
+
+    const app = document.getElementById("app");
+    function renderView() {
+      if (view === "queue") return renderQueue();
+      if (view === "schedule") return renderSchedule();
+      if (view === "completed") return renderCompleted();
+    }
+
+    function stat(ico, cls, val, label) {
+      return `<div class="stat"><div class="stat-top"><div class="stat-ico ${cls}">${UI.icon(ico)}</div></div>
+        <div class="stat-val">${val}</div><div class="stat-label">${label}</div></div>`;
+    }
+
+    /* -------- Queue -------- */
+    function renderQueue() {
+      const jobs = assignedApps();
+      const done = completedApps();
+      const verified = done.filter((a) => a.status === "Verified").length;
+      app.innerHTML = `
+        <div class="page-head">
+          <div><h1>Job Queue</h1><p>Verification visits assigned to you in ${inspector.district}.</p></div>
+          <span class="badge badge-info"><span class="dot"></span>${inspector.id}</span>
+        </div>
+        <div class="stat-grid">
+          ${stat("inbox", "ico-amber", jobs.length, "Assigned to you")}
+          ${stat("calendar", "ico-blue", jobs.filter((j) => j.scheduled).length, "Scheduled visits")}
+          ${stat("check", "ico-green", verified, "Verified (total)")}
+          ${stat("scale", "ico-red", LM.instrumentsByInspector(INSPECTOR_ID).length, "Instruments certified")}
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Pending verifications <span>&middot; act on each job</span></h2></div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Application</th><th>Instrument</th><th>Trader</th><th>Location</th><th>Scheduled</th><th>Fee</th><th></th></tr></thead>
+              <tbody>${jobs.length ? jobs.map((a) => `<tr>
+                <td class="mono t-primary">${a.id}</td>
+                <td><div class="t-primary">${a.type}</div><div class="t-sub">${a.model || "—"}</div></td>
+                <td>${a.traderName}</td>
+                <td>${a.district}</td>
+                <td>${UI.fmtDate(a.scheduled)}</td>
+                <td>${a.feePaid ? `<span class="badge badge-ok"><span class="dot"></span>Paid</span>` : `<span class="badge badge-danger"><span class="dot"></span>Unpaid</span>`}</td>
+                <td class="text-right"><button class="btn btn-primary btn-sm" onclick="startVerify('${a.id}')" ${a.feePaid ? "" : "disabled title='Fee not paid'"}>Verify</button></td>
+              </tr>`).join("") : `<tr><td colspan="7"><div class="empty">${UI.icon("check")}<p>No pending jobs. You&apos;re all caught up.</p></div></td></tr>`}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    /* -------- Schedule -------- */
+    function renderSchedule() {
+      const jobs = assignedApps().slice().sort((a, b) => new Date(a.scheduled || 0) - new Date(b.scheduled || 0));
+      app.innerHTML = `
+        <div class="page-head"><div><h1>Visit Schedule</h1><p>Upcoming site visits in chronological order.</p></div></div>
+        <div class="card"><div class="card-pad">
+          ${jobs.length ? jobs.map((a) => `
+            <div class="guide-item" style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);align-items:center;">
+              <div style="text-align:center;flex:none;width:64px;">
+                <div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;font-weight:700;">${new Date(a.scheduled).toLocaleDateString("en-IN", { month: "short" })}</div>
+                <div style="font-size:24px;font-weight:750;color:var(--primary);line-height:1;">${new Date(a.scheduled).getDate()}</div>
+              </div>
+              <div style="flex:1;">
+                <div class="t-primary" style="font-weight:650;">${a.type} &middot; <span class="mono" style="font-size:13px;">${a.id}</span></div>
+                <div class="muted" style="font-size:13px;">${a.traderName} &middot; ${a.district}</div>
+              </div>
+              <button class="btn btn-soft btn-sm" onclick="startVerify('${a.id}')" ${a.feePaid ? "" : "disabled"}>Open</button>
+            </div>`).join("") : `<div class="empty">${UI.icon("calendar")}<p>No visits scheduled.</p></div>`}
+        </div></div>`;
+    }
+
+    /* -------- Completed -------- */
+    function renderCompleted() {
+      const done = completedApps();
+      app.innerHTML = `
+        <div class="page-head"><div><h1>Completed Jobs</h1><p>Verifications you have finalised.</p></div></div>
+        <div class="card"><div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Application</th><th>Instrument</th><th>Trader</th><th>Result</th><th>Certificate</th></tr></thead>
+            <tbody>${done.length ? done.map((a) => `<tr>
+              <td class="mono t-primary">${a.id}</td>
+              <td>${a.type}</td>
+              <td>${a.traderName}</td>
+              <td>${UI.appBadge(a.status)}</td>
+              <td class="mono t-sub">${a.resultCert || "—"}</td>
+            </tr>`).join("") : `<tr><td colspan="5"><div class="empty">${UI.icon("file")}<p>No completed jobs yet.</p></div></td></tr>`}</tbody>
+          </table>
+        </div></div>`;
+    }
+
+    /* -------- Verification workflow -------- */
+    window.startVerify = function (id) {
+      const a = LM.db.applications.find((x) => x.id === id);
+      UI.modal({
+        title: "Record verification result",
+        subtitle: a.id + " · " + a.type + " · " + a.traderName,
+        wide: true,
+        body: `<form id="verForm">
+          <div class="card" style="background:var(--surface-2);box-shadow:none;margin-bottom:18px;">
+            <div class="card-pad kv" style="grid-template-columns:1fr auto;">
+              <dt>Trader</dt><dd>${a.traderName}</dd>
+              <dt>Instrument</dt><dd>${a.type} (${a.model || "—"})</dd>
+              <dt>Location</dt><dd>${a.district}</dd>
+              <dt>Scheduled</dt><dd>${UI.fmtDate(a.scheduled)}</dd>
+            </div>
+          </div>
+          <div class="field"><label>Verified capacity / range</label><input class="input" name="capacity" placeholder="e.g. 30 kg" required /></div>
+          <div class="form-grid">
+            <div class="field"><label>Applied test load</label><input class="input" name="load" placeholder="e.g. 20.000 kg" /></div>
+            <div class="field"><label>Observed reading</label><input class="input" name="reading" placeholder="e.g. 20.005 kg" /></div>
+          </div>
+          <div class="field">
+            <label>Outcome</label>
+            <div class="seg" role="tablist" style="width:100%;">
+              <button type="button" class="active" data-res="pass" style="flex:1;">${UI.icon("check")} Within tolerance — Pass</button>
+              <button type="button" data-res="fail" style="flex:1;">${UI.icon("x")} Out of tolerance — Fail</button>
+            </div>
+          </div>
+          <div class="field hide" id="reasonField"><label>Reason for rejection</label>
+            <textarea class="textarea" name="reason" placeholder="Describe the defect or deviation found..."></textarea>
+          </div>
+          <p class="faint" style="font-size:12px;">On pass, a digital certificate valid for 12 months is issued automatically and recorded for public verification.</p>
+        </form>`,
+        footer: `<button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-ok" id="submitVer">${UI.icon("shield")} Issue result</button>`,
+      });
+
+      let result = "pass";
+      const seg = document.querySelector("#verForm .seg");
+      seg.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+        seg.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active"); result = b.dataset.res;
+        document.getElementById("reasonField").classList.toggle("hide", result !== "fail");
+        const btn = document.getElementById("submitVer");
+        btn.className = "btn " + (result === "fail" ? "btn-danger-ghost" : "btn-ok");
+        btn.innerHTML = (result === "fail" ? UI.icon("xCircle") + " Record rejection" : UI.icon("shield") + " Issue certificate");
+      }));
+
+      document.getElementById("submitVer").addEventListener("click", () => {
+        const f = document.getElementById("verForm");
+        if (result === "pass" && !f.capacity.value.trim()) { f.reportValidity(); return; }
+        const res = LM.completeVerification(id, {
+          pass: result === "pass",
+          capacity: f.capacity.value.trim(),
+          reason: f.reason ? f.reason.value.trim() : "",
+        });
+        UI.closeModal();
+        if (result === "pass") UI.toast("Certificate " + res.resultCert + " issued", "ok");
+        else UI.toast("Application marked as rejected", "danger");
+        renderSidebar(); renderView();
+      });
+    };
+
+    renderSidebar();
+    renderView();
+  </script>
+</body>
+</html>
